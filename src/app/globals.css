@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@import "../styles/organic.css";
+@import "../styles/boek-de-bus.css";
+
+/*
+ * Page chrome. The Organic design system owns everything else: it declares the
+ * tokens in `:root` and the component classes, and the flow styles build on
+ * those. Tokens are deliberately not mirrored into a `@theme` block — that
+ * would declare every one of them twice and leave which copy wins up to
+ * import order.
+ *
+ * Ported from the prototype's <helmet> block.
+ */
+
+body {
+  /* One step darker than --color-bg, so the phone frame reads as lifted. */
+  background: var(--color-neutral-200);
+}
+
+a {
+  color: var(--color-accent-700);
+}
+
+a:hover {
+  color: var(--color-accent-800);
+}
+
+/* A stated preference has to beat every rule that could set motion, including
+   any added later — which is the one case `!important` is the right tool for. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: must override any motion rule */
+    animation: none !important;
+    transition: none !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: must override any motion rule */
+  }
+}

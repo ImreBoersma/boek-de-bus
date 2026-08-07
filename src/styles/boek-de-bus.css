@@ -1,0 +1,885 @@
+/*
+ * The "plan een rit" flow, ported from `Eropuit Flow.dc.html`.
+ *
+ * The prototype styled everything with inline style objects, because its
+ * template language could not compute anything. Those objects are transcribed
+ * here as classes over Organic's tokens, which is what the design system asks
+ * for — and it buys real hover/focus states, which inline styles cannot carry.
+ *
+ * The calendar cell is the one part that needs care. The prototype layered
+ * style objects with `Object.assign`, so a later layer overwrote only the
+ * properties it declared. The cell rules below reproduce that by keeping every
+ * one of them at the same specificity — modifier attributes go inside
+ * `:where()`, which contributes none — so the winner is decided purely by
+ * document order, exactly as the assignment order decided it there. The order
+ * is out-of-month, past, today, pending, booked, selected. Reordering these
+ * rules, or dropping a `:where()`, changes the rendering.
+ */
+
+/* ── the page around the phone ─────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 16px;
+}
+
+/* Centres a single card in the viewport, for the screens that are not the
+   phone frame: login, 404, and the error boundary. */
+.page-centered {
+  justify-content: center;
+}
+
+/* The design is a fixed 390px frame; `min()` only kicks in below that so it
+   never overflows a narrow phone. */
+.app-bar,
+.page-note {
+  width: min(390px, 100%);
+}
+
+/* The queue holds prose and buttons rather than a calendar, so it is allowed to
+   be wider than the frame. */
+.page-narrow .app-bar,
+.page-narrow .card {
+  width: min(30rem, 100%);
+}
+
+.page-note {
+  font-size: 12.5px;
+  color: var(--color-neutral-700);
+  margin: 0;
+}
+
+.page-note-centered {
+  text-align: center;
+}
+
+/* ── app bar ───────────────────────────────────────────────────────────── */
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.app-bar-who {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+  /* Pushes everything after it to the right edge. */
+  margin-right: auto;
+}
+
+.app-bar-role {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+
+/* Shared by the link and the sign-out button so a `<form><button>` sits on the
+   same baseline as an `<a>`. */
+.app-bar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-accent-700);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.app-bar-link:hover {
+  color: var(--color-accent-800);
+  text-decoration: underline;
+}
+
+.app-bar-signout {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-neutral-700);
+}
+
+.app-bar-signout:hover {
+  color: var(--color-neutral-900);
+}
+
+.app-bar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-accent-2);
+  color: var(--color-bg);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── auth and message cards ────────────────────────────────────────────── */
+
+.auth-card {
+  width: min(390px, 100%);
+  gap: 0;
+  padding: var(--space-4) var(--space-3);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-md);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: var(--space-3);
+}
+
+.auth-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 26px;
+  line-height: 1.15;
+  margin: 0 0 8px;
+}
+
+.auth-lede {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--color-neutral-700);
+  margin: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.auth-notice {
+  margin-top: var(--space-3);
+}
+
+.auth-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  text-align: center;
+}
+
+.auth-sent-text {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--color-neutral-800);
+  margin: 0;
+}
+
+.error-digest {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-neutral-600);
+  margin: var(--space-2) 0 0;
+}
+
+/* ── owner queue ───────────────────────────────────────────────────────── */
+
+.queue-card {
+  gap: 0;
+  padding: var(--space-4) var(--space-3);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-sm);
+}
+
+.queue {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.queue-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+/* A row that is mid-decision reads as inert without moving, so the list does
+   not reflow under the finger that just tapped it. */
+.queue-row[data-busy] {
+  opacity: 0.55;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.queue-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-accent-200);
+  color: var(--color-accent-800);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+}
+
+.queue-head-text {
+  min-width: 0;
+}
+
+.queue-who {
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0;
+}
+
+.queue-period {
+  font-size: 13.5px;
+  color: var(--color-neutral-700);
+  margin: 2px 0 0;
+}
+
+.queue-days {
+  color: var(--color-neutral-600);
+}
+
+.queue-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 13px;
+  margin: 0;
+  padding-top: 2px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.queue-detail dt {
+  color: var(--color-neutral-600);
+}
+
+.queue-detail dd {
+  margin: 0;
+  /* A note is free text and may be one long word. */
+  overflow-wrap: anywhere;
+}
+
+.queue-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--color-neutral-800);
+  margin: 0;
+}
+
+.queue-warn svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-accent-2-700);
+}
+
+.queue-warn-error svg {
+  color: var(--color-accent-700);
+}
+
+.queue-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.queue-btn {
+  flex: 1;
+  min-height: 42px;
+}
+
+.queue-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The calendar's error sits in the footer's flow; inside the form it needs to
+   clear the field above it. */
+.form-error {
+  margin-top: var(--space-2);
+}
+
+/* ── utilities ─────────────────────────────────────────────────────────── */
+
+/* Text for assistive tech only. Not `display: none`, which removes it from the
+   accessibility tree along with everything else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.phone {
+  width: min(390px, 100%);
+  min-height: 780px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Shared shape for the two full-width primary actions. The `margin: 0` undoes
+   `.btn-block`'s top margin — the surrounding flex column owns the gap. */
+.flow-cta {
+  min-height: 50px;
+  font-size: 16px;
+  margin: 0;
+}
+
+/* ── step 1: the calendar ──────────────────────────────────────────────── */
+
+.cal-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 0;
+}
+
+.cal-brand-name {
+  font-family: var(--font-heading);
+  font-size: 19px;
+}
+
+.cal-intro {
+  padding: 14px 24px 0;
+}
+
+.cal-title {
+  font-size: 27px;
+  margin: 0;
+}
+
+.cal-status {
+  font-size: 13.5px;
+  color: var(--color-neutral-700);
+  margin: 4px 0 0;
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+/* A real heading, so the grid below it has structure. `margin: 0` and the
+   size override undo the design system's h2. */
+.cal-month {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  margin: 0;
+  flex: 1;
+}
+
+/* Bigger than `.btn-icon`'s 36px, to clear the 44px touch target. */
+.cal-nav-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.cal-weekdays,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cal-weekdays {
+  padding: 8px 14px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-neutral-600);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-grid {
+  padding: 2px 14px 0;
+}
+
+.cal-legend {
+  display: flex;
+  gap: 14px;
+  padding: 8px 20px 0;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+}
+
+.cal-legend > li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-legend-bar {
+  width: 22px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.cal-legend-bar[data-kind="booked"] {
+  background: var(--color-accent-2-200);
+}
+
+.cal-legend-bar[data-kind="picked"] {
+  background: var(--color-accent-300);
+}
+
+.cal-legend-ring {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px dashed var(--color-accent-500);
+}
+
+.cal-error {
+  margin: 10px 20px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* A step lighter than the text, and pinned against the first line of it. */
+.cal-error svg {
+  flex: none;
+  margin-top: 1px;
+  stroke: var(--color-accent-700);
+}
+
+.cal-footer {
+  margin-top: auto;
+  padding: 16px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Holds its 22px even while empty, so the button does not shift when a period
+   is chosen. */
+.cal-picked {
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  min-height: 22px;
+  color: var(--color-accent-900);
+}
+
+.cal-picked:empty {
+  visibility: hidden;
+}
+
+/* ── the calendar cell ─────────────────────────────────────────────────── */
+
+.cal-cell {
+  /* button reset — the prototype's cell was a plain div */
+  appearance: none;
+  display: block;
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+
+  height: 46px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.cal-cell:disabled {
+  cursor: default;
+  /* Not `.btn`, so the design system's disabled dimming does not apply — and
+     it should not: each state below sets its own colour. */
+  opacity: 1;
+}
+
+.cal-fill {
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  position: relative;
+}
+
+.cal-num {
+  display: grid;
+  place-items: center;
+  position: relative;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+/* — layer 1: borrowed from the neighbouring month — */
+
+.cal-cell[data-out-of-month] .cal-fill {
+  color: var(--color-neutral-400);
+  opacity: 0.65;
+}
+
+/* — layer 2: already gone by — */
+
+.cal-cell[data-past] .cal-fill {
+  color: var(--color-neutral-500);
+  opacity: 0.55;
+}
+
+.cal-cell[data-past] .cal-num {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+/* — layer 3: today. Comes back to full strength even when it is one of the
+     borrowed days, which is how 31 July reads in August's grid. — */
+
+.cal-cell[data-today] .cal-fill {
+  color: var(--color-text);
+  opacity: 1;
+}
+
+.cal-cell[data-today] .cal-num {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent);
+  font-weight: 700;
+}
+
+/* — layer 4: asked for but not decided. Overwrites today's solid ring with a
+     dashed one; suppressed entirely while the day is selected. — */
+
+.cal-cell[data-pending] .cal-num {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 2px dashed var(--color-accent-500);
+}
+
+.cal-dot {
+  position: absolute;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-accent-600);
+}
+
+.cal-cell[data-pending="1"] .cal-dot {
+  left: calc(50% - 2.5px);
+}
+
+.cal-cell[data-pending="many"] .cal-dot:nth-of-type(1) {
+  left: calc(50% - 7px);
+}
+
+.cal-cell[data-pending="many"] .cal-dot:nth-of-type(2) {
+  left: calc(50% + 2px);
+}
+
+/* — layer 5: booked. A run is drawn as one pill: every day carries the fill,
+     the first and last day carry the rounding and the inset. — */
+
+.cal-cell[data-booked] .cal-fill {
+  font-weight: 600;
+}
+
+.cal-cell[data-booked="other"] .cal-fill {
+  background: var(--color-accent-2-200);
+  color: var(--color-accent-2-800);
+}
+
+.cal-cell[data-booked="own"] .cal-fill {
+  background: var(--color-accent-200);
+  color: var(--color-accent-800);
+  border-top: 2px solid var(--color-accent-500);
+  border-bottom: 2px solid var(--color-accent-500);
+}
+
+.cal-cell[data-booked]:where([data-run-start]) .cal-fill {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+  margin-left: 4px;
+}
+
+.cal-cell[data-booked="own"]:where([data-run-start]) .cal-fill {
+  border-left: 2px solid var(--color-accent-500);
+}
+
+.cal-cell[data-booked]:where([data-run-end]) .cal-fill {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+  margin-right: 4px;
+}
+
+.cal-cell[data-booked="own"]:where([data-run-end]) .cal-fill {
+  border-right: 2px solid var(--color-accent-500);
+}
+
+.cal-chip {
+  position: absolute;
+  left: 4px;
+  top: -6px;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--color-bg);
+  color: var(--color-accent-100);
+  z-index: 1;
+}
+
+.cal-cell[data-booked="own"] .cal-chip {
+  background: var(--color-accent-600);
+}
+
+.cal-cell[data-booked="other"] .cal-chip {
+  background: var(--color-accent-2-600);
+}
+
+/* — layer 6: the period being chosen. Flattens the corners first, then rounds
+     the two ends, so the middle of a range reads as one continuous bar. — */
+
+.cal-cell[data-selected] .cal-fill {
+  background: var(--color-accent-300);
+  color: var(--color-accent-900);
+  font-weight: 700;
+  border-radius: 0;
+}
+
+.cal-cell[data-selected]:where([data-sel-start]) .cal-fill {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+  margin-left: 4px;
+}
+
+.cal-cell[data-selected]:where([data-sel-end]) .cal-fill {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+  margin-right: 4px;
+}
+
+/* Deliberately does not touch `border`, so a selected "today" keeps its solid
+   accent ring on top of the filled circle. */
+.cal-cell[data-selected]:where([data-sel-edge]) .cal-num {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--color-accent-600);
+  color: var(--color-accent-100);
+}
+
+/* ── step 2: the request form ──────────────────────────────────────────── */
+
+.form-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 14px 0;
+}
+
+.form-back {
+  width: 44px;
+  height: 44px;
+  border-color: transparent;
+}
+
+/* The step's heading, so the form has one and focus has somewhere to land —
+   but sized and set as the plain label the design draws, not as an h1. */
+.form-head-title {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: inherit;
+  letter-spacing: normal;
+  margin: 0;
+}
+
+.form-body {
+  padding: 14px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.form-summary {
+  background: var(--color-accent-100);
+  border-radius: 22px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-summary svg {
+  flex: none;
+  stroke: var(--color-accent-700);
+}
+
+.form-summary-text {
+  flex: 1;
+}
+
+.form-summary-range {
+  font-weight: 700;
+  font-size: 16.5px;
+  color: var(--color-accent-900);
+}
+
+.form-summary-days {
+  font-size: 12.5px;
+  color: var(--color-accent-800);
+}
+
+.form-summary-edit {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+/* Matched against `.field > label` from the design system, which is a class
+   plus a type and would otherwise win. Same reason for `textarea` below. */
+.field > .form-label {
+  font-size: 13px;
+}
+
+.form-label-optional {
+  color: var(--color-neutral-600);
+}
+
+/* 16px keeps iOS Safari from zooming the viewport on focus. */
+.form-input {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+textarea.form-textarea {
+  min-height: 96px;
+  border-radius: 22px;
+  font-size: 15px;
+}
+
+.form-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-hint {
+  font-size: 12.5px;
+  color: var(--color-neutral-700);
+  text-align: center;
+  margin: 0;
+}
+
+/* ── step 3: confirmation ──────────────────────────────────────────────── */
+
+.done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.done-icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+/* Sage for a booking that is already settled, terracotta for one still open —
+   the same two voices the calendar uses. */
+.done-icon[data-settled="true"] {
+  background: var(--color-accent-2-200);
+  color: var(--color-accent-2-700);
+}
+
+.done-icon[data-settled="false"] {
+  background: var(--color-accent-200);
+  color: var(--color-accent-700);
+}
+
+.done-title {
+  font-size: 34px;
+  margin: 6px 0 0;
+}
+
+.done-range {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.done-dest {
+  font-size: 15px;
+  color: var(--color-neutral-700);
+}
+
+.done-body {
+  font-size: 14.5px;
+  color: var(--color-neutral-800);
+  margin: 6px 0 0;
+  max-width: 300px;
+}
+
+.done-cta {
+  min-height: 48px;
+  font-size: 15px;
+  padding-inline: 26px;
+  margin-top: 14px;
+}
