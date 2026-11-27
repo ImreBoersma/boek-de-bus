@@ -100,10 +100,10 @@ stored, so a database dump cannot be turned back into working links.
 
 Everything is real except two layers, both behind interfaces:
 
-| Layer | Real | Stub |
-| --- | --- | --- |
-| Database | [`schema.sql`](src/lib/db/schema.sql), row types, `Repository` interface | In-memory store ([`stub.ts`](src/lib/db/stub.ts)) |
-| Email | Subjects, Dutch copy, text + HTML parts | Writes to the server log ([`transport.ts`](src/lib/email/transport.ts)) |
+| Layer    | Real                                                                     | Stub                                                                    |
+| -------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Database | [`schema.sql`](src/lib/db/schema.sql), row types, `Repository` interface | In-memory store ([`stub.ts`](src/lib/db/stub.ts))                       |
+| Email    | Subjects, Dutch copy, text + HTML parts                                  | Writes to the server log ([`transport.ts`](src/lib/email/transport.ts)) |
 
 The stub repository enforces the same invariants the schema does — no
 overlapping approved trips, single-use expiring tokens, case-insensitive email —
